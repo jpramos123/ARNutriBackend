@@ -25,7 +25,7 @@ def register():
 
     error = None
     db = g.db
-    cursor = g.db.cursor()
+    cursor = db.cursor()
 
    
     for key in user_register:
@@ -43,8 +43,6 @@ def register():
     if response is not None:
         print('DEU ERRO')
         error = 'Email {} already registered'.format(user_register['email'])
-    
-    print(user_register['birth_date'])
 
     if error is None:
         cursor.execute(
@@ -92,7 +90,6 @@ def login():
 def load_logged_in_user():
     user_id = session.get('user_id')
 
-    print(session)
     db = get_db()
     cursor = db.cursor()
 
