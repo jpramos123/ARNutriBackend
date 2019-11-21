@@ -11,8 +11,6 @@ bp = Blueprint('auth', __name__, url_prefix='/auth')
 @bp.route('/register', methods=(['POST']))
 def register():
     
-    
-
     user_register = {
         'name': request.form['name'],
         'gender' : request.form['gender'],
@@ -24,7 +22,8 @@ def register():
         }
 
     error = None
-    db = g.db
+
+    db = get_db()
     cursor = db.cursor()
 
    
@@ -66,7 +65,7 @@ def login():
         }
 
     error = None
-    db = g.db
+    db = get_db()
     cursor = g.db.cursor()
 
     cursor.execute('SELECT * FROM Users WHERE email=%s', (user_login['email']))
@@ -83,10 +82,11 @@ def login():
         session['user_id'] = user['id']
         return json.dumps({'success':True}), 200, {'ContentType':'application/json'}
 
+    print(error)
     return json.dumps({'success':False}), 300, {'ContentType':'application/json'}
     #flash(error)
 
-@bp.before_app_request
+"""@bp.before_app_request
 def load_logged_in_user():
     user_id = session.get('user_id')
 
@@ -100,7 +100,7 @@ def load_logged_in_user():
         return 'NOT LOGGED'
     else:
         cursor.execute('SELECT * FROM Users WHERE id = %s', (user_id,))
-        g.user = cursor.fetchone()
+        g.user = cursor.fetchone()"""
 
 @bp.route('/logout')
 def logout():
