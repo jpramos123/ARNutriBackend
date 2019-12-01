@@ -5,10 +5,12 @@ from flask import (
 from werkzeug.security import check_password_hash, generate_password_hash
 from flaskr.db import get_db
 import json
+from flask_cors import cross_origin
 
 bp = Blueprint('auth', __name__, url_prefix='/auth')
 
 @bp.route('/register', methods=(['POST']))
+@cross_origin(supports_credentials=True)
 def register():
     
     user_register = {
@@ -23,7 +25,7 @@ def register():
 
     error = None
 
-    db = get_db()
+    db = g.db
     cursor = db.cursor()
 
    
@@ -57,8 +59,10 @@ def register():
 
 
 @bp.route('/login', methods=(['POST']))
+@cross_origin(supports_credentials=True)
 def login():
 
+    response = json
     user_login = {
         'email' : request.form['email'],
         'password' : request.form['password']
@@ -80,29 +84,31 @@ def login():
     if error is None:
         session.clear()
         session['user_id'] = user['id']
+        print('USER SESSION: ', session['user_id'])
         return json.dumps({'success':True}), 200, {'ContentType':'application/json'}
 
     print(error)
     return json.dumps({'success':False}), 300, {'ContentType':'application/json'}
     #flash(error)
 
-"""@bp.before_app_request
+@bp.before_app_request
 def load_logged_in_user():
+    print('BEFORE ALL')
     user_id = session.get('user_id')
 
+    print(user_id)
     db = get_db()
     cursor = db.cursor()
 
  
     if user_id is None:
-        print('ALWAYS HERE')
         g.user = None
-        return 'NOT LOGGED'
     else:
         cursor.execute('SELECT * FROM Users WHERE id = %s', (user_id,))
-        g.user = cursor.fetchone()"""
+        g.user = cursor.fetchone()
 
 @bp.route('/logout')
+@cross_origin(supports_credentials=True)
 def logout():
     session.clear()
     return json.dumps({'success':True}), 200, {'ContentType':'application/json'}
