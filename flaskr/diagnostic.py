@@ -8,7 +8,9 @@ from flaskr.db import get_db
 import json
 from flask_cors import cross_origin
 from flask import Response
-
+import pandas as pd
+from joblib import load
+import numpy as np
 
 bp = Blueprint('diagnostic', __name__, url_prefix='/diagnostic')
 
@@ -160,8 +162,7 @@ def post_socioeconomics():
             data = {
                 'message':"Failed on updating personal data"
             }
-            js = json.dumps(data)
-            resp = Response(js, status=500, mimetype='application/json')
+            v
             return resp
 
 
@@ -324,24 +325,65 @@ def makeDiagnostic():
     db = g.db
     cursor = db.cursor()
 
-    cursor.execute("""SELECT heartBeats, systolicPressure, diastolicPressure
-	   weight, height, bmi, armCircunference, waistCircunference,
-	   sagittalAbdominalDiameter, fistStrength, age, calories,
-	   proteins, carbohydrates, totalSugar, fibers, fats, saturatedFat,
-	   monounsaturatedFat, polyunsaturatedFat, cholesterol, alcohol, s.educationalLevel, s.householdIncome FROM Anthropometrics a
-RIGHT JOIN Socioeconomics s ON s.userId = a.userId
-WHERE a.userId = %s;""", (userId))
+    cursor.execute("""SELECT
+                        A.heartBeats as Batimentos,
+                        A.heartBeats as BatimentosRegulares,
+                        A.systolicPressure as MediaPressaoSistolica,
+                        A.diastolicPressure as MediaPressaoDiastolica,
+                        A.weight as Peso,
+                        A.height as AlturaEmPe,
+                        A.bmi as IMC,
+                        A.armCircunference as CircunferenciaDoBraco,
+                        A.waistCircunference as CircunferenciaDaCintura,
+                        A.sagittalAbdominalDiameter as DiametroAbdominalSagital,
+                        A.fistStrength as ForcaNoPunho,
+                        DATEDIFF(yy, U.birth_date, getdate()) as Idade,
+                        U.gender as Genero,
+                        P.educationalLevel as GrauDeEscolaridade,
+                        P.totalPeopleResidence as TotalPessoasResidencia ,
+                        P.householdIncome as RendimentoFamiliarTotal,
+                        N.calories as Calorias,
+                        N.proteins as Proteinas,
+                        N.carbohydrates as Carboidratos,
+                        N.totalSugar as AcucarTotal,
+                        N.fibers as Fibras,
+                        N.fats as Gorduras,
+                        N.saturatedFat as GorduraSaturada,
+                        N.monounsaturatedFat as GorduraMonosaturada,
+                        N.polyunsaturatedFat as GorduraPoliinsaturada,
+                        N.cholesterol as Colesterol,
+                        N.alcohol as Alcool,
+                        A.PAL as NivelAtividadeFisica
+                    FROM Anthropometrics A
+                    JOIN Users U ON A.userId = U.id
+                    JOIN PersonalData P ON P.userId = U.id
+                    JOIN Nutrients N ON N.userId = U.id
+                    WHERE U.id = %s;""", (userId))
 
     data = cursor.fetchone()
 
-    
+    patient = pd.DataFrame.from_dict(data, orient='index');
 
-    return 'OI'
+    print(patient)
 
+    # Calling Diagnostic Function
+    result = diagnostic(patient)
 
+    data = {
+        'isDiabetic': result
+    }
+    js = json.dumps(data)
+    resp = Response(js, status=200, mimetype='application/json')
+    return resp
 
 
 """age,calories,proteins,
     carbohydrates,totalSugar,fibers,fats,saturatedFat,monounsaturatedFat,
     polyunsaturatedFat,cholesterol,alcohol)
 """
+
+def diagnostic(patient):
+    bagging = load('flaskr/decision_tree.joblib')
+    result = bagging.predict(np.array(patient).reshape(1,-1))[0]
+    print(f'RESULTADO: {bool(result)}')
+    return bool(result)
