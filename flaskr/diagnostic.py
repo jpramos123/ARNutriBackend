@@ -11,6 +11,7 @@ from flask import Response
 import pandas as pd
 from joblib import load
 import numpy as np
+from . import menu
 
 bp = Blueprint('diagnostic', __name__, url_prefix='/diagnostic')
 
@@ -362,9 +363,7 @@ def makeDiagnostic():
 
     data = cursor.fetchone()
 
-    patient = pd.DataFrame.from_dict(data, orient='index');
-
-    print(patient)
+    patient = pd.DataFrame.from_dict(data, orient='index')
 
     # Calling Diagnostic Function
     result = diagnostic(patient)
@@ -376,14 +375,37 @@ def makeDiagnostic():
     resp = Response(js, status=200, mimetype='application/json')
     return resp
 
-
-"""age,calories,proteins,
-    carbohydrates,totalSugar,fibers,fats,saturatedFat,monounsaturatedFat,
-    polyunsaturatedFat,cholesterol,alcohol)
-"""
-
 def diagnostic(patient):
     bagging = load('flaskr/decision_tree.joblib')
     result = bagging.predict(np.array(patient).reshape(1,-1))[0]
     print(f'RESULTADO: {bool(result)}')
     return bool(result)
+
+@bp.route('/generateMenu', methods=(['GET']))
+@cross_origin(supports_credentials=True)
+def generateMenu():
+
+    userId = session['user_id']
+
+    db = g.db
+    cursor = db.cursor()
+
+    cursor.execute("""SELECT
+                        A.weight as Peso,
+                        DATEDIFF(yy, U.birth_date, getdate()) as Idade,
+                        U.gender as 'Genero',
+                        A.PAL as NivelAtividadeFisica
+                    FROM Anthropometrics A
+                    JOIN Users U ON A.userId = U.id
+                    WHERE U.id = %s;""", (userId))
+
+    data = cursor.fetchone()
+    nutrientes = menu.calcula_nutrientes(data)
+    nutrientes_matrix = np.matrix(nutrientes, dtype=np.float64)
+    result = menu.algoritmo_genetico(nutrientes_matrix, 800)
+    menu_json = menu.create_menu_json(result)
+    
+    data = menu_json
+    js = json.dumps(data)
+    resp = Response(js, status=200, mimetype='application/json')
+    return resp

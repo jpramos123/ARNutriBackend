@@ -34,5 +34,7 @@ def create_app(test_config=None):
 
     from . import diagnostic
     app.register_blueprint(diagnostic.bp)
+
+    from . import menu
     
     return app
