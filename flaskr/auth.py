@@ -61,7 +61,7 @@ def register():
 @bp.route('/login', methods=(['POST']))
 @cross_origin(supports_credentials=True)
 def login():
-
+    print(request.form)
     response = json
     user_login = {
         'email' : request.form['email'],
@@ -85,7 +85,7 @@ def login():
         session.clear()
         session['user_id'] = user['id']
         print('USER SESSION: ', session['user_id'])
-        return json.dumps({'success':True}), 200, {'ContentType':'application/json'}
+        return json.dumps({'success':True,}), 200, {'ContentType':'application/json'}
 
     print(error)
     return json.dumps({'success':False}), 300, {'ContentType':'application/json'}

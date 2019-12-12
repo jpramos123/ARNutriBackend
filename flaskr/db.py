@@ -1,7 +1,7 @@
 import pymssql
 from flask import g, current_app 
 
-server = 'localhost:1435'
+server = 'localhost:1433'
 database = 'ARNutri'
 username = 'sa'
 password = 'ARNutri123!@#'

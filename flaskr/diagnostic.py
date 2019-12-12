@@ -23,7 +23,7 @@ def post_antropometric():
         
         if not request.form:
             abort(400)
-          
+        
         user_antropometrics = {
             'userId': session['user_id'],
             'heartBeats' : request.form['heartBeats'],
@@ -36,27 +36,76 @@ def post_antropometric():
             'waistCircunference': request.form['waistCircunference'], 
             'sagittalAbdominalDiameter': request.form['sagittalAbdominalDiameter'], 
             'fistStrength': request.form['fistStrength'],
-
+            'PAL': request.form['PAL']
         }
 
 
         db = g.db
         cursor = db.cursor()
 
-        
         try:
-            cursor.execute("""INSERT INTO Anthropometrics (userId,heartBeats,systolicPressure,diastolicPressure,
-                                                            weight,height,bmi,armCircunference,waistCircunference,
-                                                            sagittalAbdominalDiameter,fistStrength)
-                            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-                            (user_antropometrics['userId'],user_antropometrics['heartBeats'],user_antropometrics['systolicPressure'],user_antropometrics['diastolicPressure'],
-                            user_antropometrics['weight'],user_antropometrics['height'],user_antropometrics['bmi'],user_antropometrics['armCircunference'],
-                            user_antropometrics['waistCircunference'],user_antropometrics['sagittalAbdominalDiameter'],user_antropometrics['fistStrength'])
-                            )
-            db.commit()
-            return json.dumps({'success':True},), 201, {'ContentType':'application/json'}
-        except:
+            cursor.execute('SELECT * FROM Anthropometrics WHERE userId = %s', user_antropometrics['userId'])
+            response = cursor.fetchone()
+        except Exception as e:
+            print('AQUI')
             return json.dumps({'success':False}), 500, {'ContentType':'application/json'}
+        
+        if response is None:
+            try:
+                cursor.execute("""INSERT INTO Anthropometrics (userId,heartBeats,systolicPressure,diastolicPressure,
+                                                                weight,height,bmi,armCircunference,waistCircunference,
+                                                                sagittalAbdominalDiameter,fistStrength, PAL)
+                                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                                (user_antropometrics['userId'],user_antropometrics['heartBeats'],user_antropometrics['systolicPressure'],user_antropometrics['diastolicPressure'],
+                                user_antropometrics['weight'],user_antropometrics['height'],user_antropometrics['bmi'],user_antropometrics['armCircunference'],
+                                user_antropometrics['waistCircunference'],user_antropometrics['sagittalAbdominalDiameter'],user_antropometrics['fistStrength'], user_antropometrics['PAL'])
+                                )
+                db.commit()
+                return json.dumps({'success':True},), 201, {'ContentType':'application/json'}
+            except:
+                return json.dumps({'success':False}), 500, {'ContentType':'application/json'}
+        else:
+            try:
+                cursor.execute("""UPDATE Anthropometrics
+                                    SET
+                                    heartBeats = %s,
+                                    systolicPressure = %s,
+                                    diastolicPressure = %s,
+                                    weight = %s,
+                                    height = %s,
+                                    bmi = %s,
+                                    armCircunference = %s,
+                                    waistCircunference = %s,
+                                    sagittalAbdominalDiameter = %s,
+                                    fistStrength = %s,
+                                    PAL = %s;""", 
+                         (
+                            user_antropometrics['heartBeats'],
+                            user_antropometrics['systolicPressure'],
+                            user_antropometrics['diastolicPressure'],
+                            user_antropometrics['weight'],
+                            user_antropometrics['height'],
+                            user_antropometrics['bmi'],
+                            user_antropometrics['armCircunference'],
+                            user_antropometrics['waistCircunference'],
+                            user_antropometrics['sagittalAbdominalDiameter'],
+                            user_antropometrics['fistStrength'],
+                            user_antropometrics['PAL']
+                         ))
+                db.commit()  
+                data = {
+                    'success': True,
+                    'message':"Anthopometrics data updated successfully"
+                }
+                js = json.dumps(data)
+                resp = Response(js, status=200, mimetype='application/json')
+                return resp
+            except Exception as e:
+                data = {
+                    'message':e
+                }
+                js = json.dumps(data)
+                return js
 
 
 @bp.route('/anthropometric', methods=(['GET']))
@@ -64,6 +113,7 @@ def post_antropometric():
 def get_antropometric():
 
     userId = session['user_id']
+    print(userId)
     db = g.db
     cursor = db.cursor()
 
@@ -118,6 +168,7 @@ def post_socioeconomics():
                             )
             db.commit()
             data = {
+                'success': True,
                 'message':"Personal data inserted successfully"
             }
             js = json.dumps(data)
@@ -153,6 +204,7 @@ def post_socioeconomics():
             db.commit()  
 
             data = {
+                'success': True,
                 'message':"Personal data updated successfully"
             }
             js = json.dumps(data)
@@ -236,7 +288,8 @@ def post_nutrients():
             print('INSERTING USER DATA (NUTRIENTS)')
             db.commit()
             data = {
-                'message':"Nutrients data updated successfully"
+                'success': True,
+                'message':"Nutrients data inserted successfully"
             }
             js = json.dumps(data)
             resp = Response(js, status=200, mimetype='application/json')
@@ -287,6 +340,7 @@ def post_nutrients():
 
             db.commit()
             data = {
+                'success': True,
                 'message':"Nutrients data updated successfully"
             }
             js = json.dumps(data)
@@ -339,7 +393,10 @@ def makeDiagnostic():
                         A.sagittalAbdominalDiameter as DiametroAbdominalSagital,
                         A.fistStrength as ForcaNoPunho,
                         DATEDIFF(yy, U.birth_date, getdate()) as Idade,
-                        U.gender as Genero,
+                        CASE U.gender
+                         WHEN 'Masculino' THEN 1
+                         ELSE 0
+                        END as Genero,
                         P.educationalLevel as GrauDeEscolaridade,
                         P.totalPeopleResidence as TotalPessoasResidencia ,
                         P.householdIncome as RendimentoFamiliarTotal,
@@ -393,7 +450,10 @@ def generateMenu():
     cursor.execute("""SELECT
                         A.weight as Peso,
                         DATEDIFF(yy, U.birth_date, getdate()) as Idade,
-                        U.gender as 'Genero',
+                        CASE U.gender
+                         WHEN 'Masculino' THEN 1
+                         ELSE 0
+                        END as Genero,
                         A.PAL as NivelAtividadeFisica
                     FROM Anthropometrics A
                     JOIN Users U ON A.userId = U.id
